@@ -1,4 +1,4 @@
-sent=opennlp-de-ud-gsd-sentence-1.0-1.9.3.bin
+sent=opennlp-en-ud-ewt-sentence-1.0-1.9.3.bin
 token=opennlp-en-ud-ewt-tokens-1.0-1.9.3.bin
 pos=opennlp-en-ud-ewt-pos-1.0-1.9.3.bin
 lemma=en-lemmatizer.bin
