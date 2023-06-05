@@ -1,11 +1,15 @@
 import opennlp.tools.sentdetect.*;
 
+import javax.swing.text.Document;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.InputStream;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Article implements Iterable<Paragraph>{
 
@@ -21,6 +25,7 @@ public class Article implements Iterable<Paragraph>{
     private boolean showToken=false;
     private boolean showPOS=false;
     private boolean showLemma=false;
+    private int progress;
 
     private static Article INSTANCE;
     private static String config;
@@ -32,6 +37,7 @@ public class Article implements Iterable<Paragraph>{
         this.posStreamName = posStreamName;
         this.lemmaStreamName = lemmaStreamName;
         this.map=new ArrayList<>();
+        this.progress=0;
     }
 
     /**
@@ -153,12 +159,21 @@ public class Article implements Iterable<Paragraph>{
         for (Paragraph p:this.raw) {
             for (Sentence s:p){
                 s.process(this.tokenStreamName,this.posStreamName,this.lemmaStreamName);
+                this.updateProgress((this.raw.indexOf(p)*100/this.raw.size())+(p.ratioOf(s)/this.raw.size()));
             }
         }
         done=true;
     }
 
-    public Sentence sentenceAt(int indexOutside,int indexInside){
+    private void updateProgress(int progress){
+        this.progress=progress;
+    }
+
+    public int getProgress() {
+        return progress;
+    }
+
+    public Sentence sentenceAt(int indexOutside, int indexInside){
         return this.raw.get(indexOutside).get(indexInside);
     }
 
@@ -170,6 +185,7 @@ public class Article implements Iterable<Paragraph>{
         this.showToken=showToken;
         this.showPOS=showPOS;
         this.showLemma=showLemma;
+        this.map=new ArrayList<>();
         String res="";
         for (Paragraph p:this.raw){
             if (!p.getTag().equals("title")) {
@@ -179,7 +195,7 @@ public class Article implements Iterable<Paragraph>{
                     buffer+=String.format("<%1$s>%2$s</%1$s>",p.getTag(),s.getContent());
                     length+=s.getContent().length();
                     if (this.showToken){
-                        buffer+=String.format("<%1$s style=\"background-color:yellow;\">TOKEN: ",p.getTag());
+                        buffer+=String.format("<%1$s style=\"color:green;\">TOKEN: ",p.getTag());
                         length+=7;
                         for (String i:s.getTokens()){
                             buffer+=i+", ";
@@ -188,7 +204,7 @@ public class Article implements Iterable<Paragraph>{
                         buffer+=String.format("</%1$s>\n",p.getTag());
                     }
                     if (this.showPOS){
-                        buffer+=String.format("<%1$s style=\"background-color:blue;\">POS: ",p.getTag());
+                        buffer+=String.format("<%1$s style=\"color:blue;\">POS: ",p.getTag());
                         length+=5;
                         for (String i:s.getPos()){
                             buffer+=i+", ";
@@ -197,7 +213,7 @@ public class Article implements Iterable<Paragraph>{
                         buffer+=String.format("</%1$s>\n",p.getTag());
                     }
                     if (this.showLemma){
-                        buffer+=String.format("<%1$s style=\"background-color:red;\">LEMMA: ",p.getTag());
+                        buffer+=String.format("<%1$s style=\"color:red;\">LEMMA: ",p.getTag());
                         length+=7;
                         for (String i:s.getLemmas()){
                             buffer+=i+", ";
@@ -215,6 +231,22 @@ public class Article implements Iterable<Paragraph>{
         return res;
     }
 
+    public List<int[]> find(String toFind, boolean isRegex, String doc){
+        System.out.println(toFind);
+        System.out.println(doc);
+
+        String re=isRegex ? toFind : Pattern.quote(toFind);
+        List<int[]> result=new ArrayList<>();
+        StringWriter sw=new StringWriter();
+
+        Pattern pattern=Pattern.compile(re);
+        Matcher matcher= pattern.matcher(doc);
+        while(matcher.find()){
+            result.add(new int[]{matcher.start(),matcher.end()});
+        }
+        return result;
+    }
+
     public String popupString(int caret){
         Sentence temp=null;
         String buffer="";
@@ -227,28 +259,27 @@ public class Article implements Iterable<Paragraph>{
         System.out.println(caret);
         if (temp!=null){
             if (!this.showToken){
-                buffer+=String.format("<%1$s style=\"background-color:yellow;\">TOKEN: ","p");
+                buffer+=String.format("<%1$s style=\"color:green;\">TOKEN: ","p");
                 for (String i:temp.getTokens()){
                     buffer+=i+", ";
                 }
                 buffer+=String.format("</%1$s>\n","p");
             }
             if (!this.showPOS){
-                buffer+=String.format("<%1$s style=\"background-color:blue;\">POS: ","p");
+                buffer+=String.format("<%1$s style=\"color:blue;\">POS: ","p");
                 for (String i:temp.getPos()){
                     buffer+=i+", ";
                 }
                 buffer+=String.format("</%1$s>\n","p");
             }
             if (!this.showLemma){
-                buffer+=String.format("<%1$s style=\"background-color:red;\">LEMMA: ","p");
+                buffer+=String.format("<%1$s style=\"color:red;\">LEMMA: ","p");
                 for (String i:temp.getLemmas()){
                     buffer+=i+", ";
                 }
                 buffer+=String.format("</%1$s>\n","p");
             }
         }
-        System.out.println(buffer);
         return temp==null ? null : buffer;
     }
 

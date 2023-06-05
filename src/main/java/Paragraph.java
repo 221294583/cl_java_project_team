@@ -50,4 +50,8 @@ public class Paragraph implements Iterable<Sentence>{
     public Iterator<Sentence> iterator() {
         return this.sentences.iterator();
     }
+
+    public int ratioOf(Sentence s){
+        return this.sentences.indexOf(s)*100/this.sentences.size();
+    }
 }
