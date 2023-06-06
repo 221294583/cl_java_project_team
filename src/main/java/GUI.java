@@ -205,7 +205,7 @@ public class GUI {
                 try {
                     NetWork netWork=new NetWork(wikiUrl.getText(),langConfig);
                     netWork.start();
-
+                    amh.dismiss();
                     ActionListener updateOutput=new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
@@ -268,7 +268,7 @@ public class GUI {
                 try {
                     NetWork netWork=new NetWork(wikiUrl.getText(),langConfig);
                     netWork.start();
-
+                    amh.dismiss();
                     ActionListener updateOutput=new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
@@ -447,6 +447,11 @@ public class GUI {
             this.component.addCaretListener(this.updateCaret);
         }
 
+        public void dismiss(){
+            this.component.removeMouseMotionListener(this.hoverF);
+            this.component.removeCaretListener(this.updateCaret);
+        }
+
         @Override
         public void mousePressed(MouseEvent e) {
             this.component.removeMouseMotionListener(this.hoverF);
@@ -511,7 +516,7 @@ public class GUI {
                     popupContent.setText(toUpdate==null ? "":toUpdate);
                     popup=popupFactory.getPopup(result,popupContent,
                             MouseInfo.getPointerInfo().getLocation().x,MouseInfo.getPointerInfo().getLocation().y);
-                    if (toUpdate!=null) {
+                    if (toUpdate!=null&&(!toUpdate.equals(""))) {
                         popup.show();
                     }
                 }

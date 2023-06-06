@@ -187,11 +187,13 @@ public class Article implements Iterable<Paragraph>{
         this.showLemma=showLemma;
         this.map=new ArrayList<>();
         String res="";
+        boolean odd=false;
         for (Paragraph p:this.raw){
             if (!p.getTag().equals("title")) {
                 for (Sentence s:p){
                     String buffer="";
                     int length=0;
+                    buffer+=String.format("<div style=\"background-color:%1$s;\">",(odd=!odd) ? "#668cff" : "#6fdcdc");
                     buffer+=String.format("<%1$s>%2$s</%1$s>",p.getTag(),s.getContent());
                     length+=s.getContent().length();
                     if (this.showToken){
@@ -221,6 +223,7 @@ public class Article implements Iterable<Paragraph>{
                         }
                         buffer+=String.format("</%1$s>\n",p.getTag());
                     }
+                    buffer+="</div>";
                     res+=buffer;
                     DictItem temp=new DictItem(s);
                     temp.setRange(this.map.size()==0 ? 1 : this.map.get(this.map.size()-1).getEndingIndex(),length);
