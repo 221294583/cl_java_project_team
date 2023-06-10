@@ -1,20 +1,17 @@
 import opennlp.tools.sentdetect.*;
+import org.jsoup.nodes.Element;
 
-import javax.swing.text.Document;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.InputStream;
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Article implements Iterable<Paragraph>{
 
-    private String url=null;
-    private List<Paragraph> raw;
+    private static String url=null;
+    private static List<Paragraph> raw;
     private String sentStreamName;
     private String tokenStreamName;
     private String posStreamName;
@@ -23,6 +20,11 @@ public class Article implements Iterable<Paragraph>{
     private boolean valid=true;
     private List<DictItem> map;
     private boolean showToken=false;
+
+    public static List<Paragraph> getRaw() {
+        return raw;
+    }
+
     private boolean showPOS=false;
     private boolean showLemma=false;
     private int progress;
@@ -181,6 +183,7 @@ public class Article implements Iterable<Paragraph>{
         return done;
     }
 
+    @Deprecated
     public String toString(boolean showToken,boolean showPOS,boolean showLemma){
         this.showToken=showToken;
         this.showPOS=showPOS;
@@ -191,41 +194,48 @@ public class Article implements Iterable<Paragraph>{
         for (Paragraph p:this.raw){
             if (!p.getTag().equals("title")) {
                 for (Sentence s:p){
+                    DictItem temp=new DictItem(s);
                     String buffer="";
                     int length=0;
                     buffer+=String.format("<div style=\"background-color:%1$s;\">",(odd=!odd) ? "#668cff" : "#6fdcdc");
                     buffer+=String.format("<%1$s>%2$s</%1$s>",p.getTag(),s.getContent());
                     length+=s.getContent().length();
+                    temp.setRangeContent(this.map.size()==0 ? 1 : this.map.get(this.map.size()-1).getEndingIndex(),length);
                     if (this.showToken){
                         buffer+=String.format("<%1$s style=\"color:green;\">TOKEN: ",p.getTag());
-                        length+=7;
+                        int l=7;
                         for (String i:s.getTokens()){
                             buffer+=i+", ";
-                            length+=(i.length()+2);
+                            l+=(i.length()+2);
                         }
+                        temp.setRangeToken(l);
+                        length+=l;
                         buffer+=String.format("</%1$s>\n",p.getTag());
                     }
                     if (this.showPOS){
                         buffer+=String.format("<%1$s style=\"color:blue;\">POS: ",p.getTag());
-                        length+=5;
+                        int l=5;
                         for (String i:s.getPos()){
                             buffer+=i+", ";
-                            length+=(i.length()+2);
+                            l+=(i.length()+2);
                         }
+                        temp.setRangePOS(l);
+                        length+=l;
                         buffer+=String.format("</%1$s>\n",p.getTag());
                     }
                     if (this.showLemma){
                         buffer+=String.format("<%1$s style=\"color:red;\">LEMMA: ",p.getTag());
-                        length+=7;
+                        int l=7;
                         for (String i:s.getLemmas()){
                             buffer+=i+", ";
-                            length+=(i.length()+2);
+                            l+=(i.length()+2);
                         }
+                        temp.setRangeLemma(l);
+                        length+=l;
                         buffer+=String.format("</%1$s>\n",p.getTag());
                     }
                     buffer+="</div>";
                     res+=buffer;
-                    DictItem temp=new DictItem(s);
                     temp.setRange(this.map.size()==0 ? 1 : this.map.get(this.map.size()-1).getEndingIndex(),length);
                     this.map.add(temp);
                 }
@@ -234,20 +244,26 @@ public class Article implements Iterable<Paragraph>{
         return res;
     }
 
-    public List<int[]> find(String toFind, boolean isRegex, String doc){
-        System.out.println(toFind);
-        System.out.println(doc);
+    public void setShowToken(boolean showToken,boolean showPOS,boolean showLemma) {
+        this.showToken = showToken;
+        this.showPOS = showPOS;
+        this.showLemma = showLemma;
+    }
 
-        String re=isRegex ? toFind : Pattern.quote(toFind);
-        List<int[]> result=new ArrayList<>();
-        StringWriter sw=new StringWriter();
-
-        Pattern pattern=Pattern.compile(re);
-        Matcher matcher= pattern.matcher(doc);
-        while(matcher.find()){
-            result.add(new int[]{matcher.start(),matcher.end()});
+    public Sentence[] getAllSentence(Article a){
+        List<Sentence> result=new ArrayList<>();
+        for (Paragraph p:a){
+            if (!p.getTag().equals("title")){
+                for (Sentence s:p){
+                    s.setTag(p.getTag());
+                    s.setShowToken(this.showToken);
+                    s.setShowPOS(this.showPOS);
+                    s.setShowLemma(this.showLemma);
+                    result.add(s);
+                }
+            }
         }
-        return result;
+        return result.toArray(new Sentence[0]);
     }
 
     public String popupString(int caret){
@@ -286,6 +302,18 @@ public class Article implements Iterable<Paragraph>{
         return temp==null ? null : buffer;
     }
 
+    public void toXML(Element db,Article art){
+        Element a=db.appendElement("article");
+        Element u=a.appendElement("url");
+        u.text(url);
+        for (Sentence sentence:this.getAllSentence(art)){
+            Element sentTemp=a.appendElement("sentence");
+            sentTemp.text(sentence.getContent());
+            sentence.toXML(sentTemp);
+        }
+    }
+
+
     @Override
     public String toString() {
         return "Article{" +
@@ -301,6 +329,10 @@ public class Article implements Iterable<Paragraph>{
     private class DictItem{
         private Sentence sentence;
         private int[] range;
+        private int[] rangeContent;
+        private int[] rangeToken;
+        private int[] rangePOS;
+        private int[] rangeLemma;
 
         public DictItem(Sentence sentence) {
             this.sentence = sentence;
@@ -312,6 +344,22 @@ public class Article implements Iterable<Paragraph>{
 
         public int getEndingIndex() {
             return range[1];
+        }
+
+        public void setRangeContent(int beginIndex,int length) {
+            this.rangeContent = new int[]{beginIndex+1,beginIndex+1+length};
+        }
+
+        public void setRangeToken(int length) {
+            this.rangeToken = new int[]{this.rangeContent[1]+(length==0? 0:1),this.rangeContent[1]+length+(length==0? 0:1)};
+        }
+
+        public void setRangePOS(int length) {
+            this.rangePOS = new int[]{this.rangeToken[1]+(length==0? 0:1),this.rangeToken[1]+length+(length==0? 0:1)};
+        }
+
+        public void setRangeLemma(int length) {
+            this.rangeLemma = new int[]{this.rangePOS[1]+(length==0? 0:1),this.rangePOS[1]+length+(length==0? 0:1)};
         }
 
         public Sentence getSentence() {

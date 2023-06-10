@@ -30,6 +30,11 @@
             <artifactId>batik-all</artifactId>
             <version>1.14</version>
         </dependency>
+        <dependency>
+            <groupId>xstream</groupId>
+            <artifactId>xstream</artifactId>
+            <version>1.2</version>
+        </dependency>
     </dependencies>
 
     <properties>

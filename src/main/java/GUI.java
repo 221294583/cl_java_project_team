@@ -1,4 +1,8 @@
+import com.thoughtworks.xstream.XStream;
 import org.apache.batik.swing.JSVGCanvas;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 import javax.swing.*;
 import javax.swing.event.CaretEvent;
@@ -17,15 +21,25 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class GUI {
+
+    private static java.util.List<ArticleRoot> articles=new ArrayList<>();
 
     private static String langConfig;
     private static Clipboard clipboard;
 
+    private static JFrame frame=new JFrame("Wiki Spider");
+
+    private static JMenuBar menuBar=new JMenuBar();
+    private static JMenu menuSettings=new JMenu("Settings");
     private static JMenuItem languageEN=new JMenuItem("");
     private static JMenuItem languageDE=new JMenuItem("");
     private static JMenuItem languageFR=new JMenuItem("");
+    private static CFileChooser fileChooser;
+    private static JMenuItem saveXML=new JMenuItem("save to XML file");
 
     private static JPopupMenu popupMenu=new JPopupMenu("edit");
     private static JMenuItem cut = new JMenuItem("cut");
@@ -37,30 +51,36 @@ public class GUI {
     private static PopupFactory popupFactory=new PopupFactory();
     private static JEditorPane popupContent=new JEditorPane();
 
-    private static JTextField wikiUrl=new JTextField("paste your wiki url here!",20);
+    private static JTextField wikiUrl=new JTextField("paste your wiki url here!",19);
     private static JButton entryButton=new JButton("GO!");
-    private static JEditorPane result=new JEditorPane();
-    private static JScrollPane resultScroll;
+    private static DefaultListModel<Sentence> listModel=new DefaultListModel<>();
+    private static JList<Sentence> resultList=new JList<>(listModel);
+    private static CellView cellRenderer;
+    private static JScrollPane resultScroll=new JScrollPane(resultList);
+    private static JPanel outputPanel=new JPanel();
+
     private static JProgressBar progressBar;
 
     private static JPanel searchBarPanel=new JPanel();
     private static JTextField searchBar;
+    private static JButton relationButton;
     private static JButton regexButton;
     private static JButton shutSearchButton;
 
+    private static JCheckBox isTokenShow=new JCheckBox("show tokens?");
+    private static JCheckBox isPosShow=new JCheckBox("show POS?");
+    private static JCheckBox isLemmaShow=new JCheckBox("show lemmas?");
+
     public static void main(String[] args) {
 
-        ArrayList<Article> articles=new ArrayList<>();
+
         final Timer[] timer = new Timer[1];
         getSettings();
+        cellRenderer=new CellView();
         clipboard=Toolkit.getDefaultToolkit().getSystemClipboard();
-        AppendMouseHover amh=new AppendMouseHover(result);
 
-        JFrame frame=new JFrame("Wiki Spider");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        JMenuBar menuBar=new JMenuBar();
-        JMenu menuSettings=new JMenu("Settings");
         menuBar.add(menuSettings);
 
         popupContent.setContentType("text/html");
@@ -79,6 +99,8 @@ public class GUI {
         languageMenu.add(languageDE);
         languageMenu.add(languageFR);
         menuSettings.add(languageMenu);
+        menuSettings.add(saveXML);
+        fileChooser=new CFileChooser(System.getProperty("user.dir"));
 
         popupMenu.add(copy);
         popupMenu.add(cut);
@@ -95,6 +117,7 @@ public class GUI {
         progressBar.setValue(0);
         progressBar.setStringPainted(true);
         progressBar.setString("PENDING");
+
         inputPanel.add(wikiUrl);
         inputPanel.add(entryButton);
         inputPanel.add(progressBar);
@@ -110,56 +133,57 @@ public class GUI {
                                         addComponent(wikiUrl).addComponent(entryButton)).
                         addComponent(progressBar));
 
-        JPanel outputPanel=new JPanel();
-
-        result.setContentType("text/html");
-        result.setFocusable(true);
-        result.setEditable(false);
-        resultScroll=new JScrollPane(result);
+        AppendMouseHover amh=new AppendMouseHover();
         outputPanel.add(resultScroll);
         GroupLayout outputLayout=new GroupLayout(outputPanel);
         outputPanel.setLayout(outputLayout);
 
-        result.addMouseListener(new ShowMenu());
+        resultList.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_F,KeyEvent.CTRL_MASK),"SEARCH");
+        resultList.getActionMap().put("SEARCH", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                searchBarPanel.setVisible(true);
+                searchBar.requestFocus();
+            }
+        });
 
         searchBar=new JTextField("",20);
 
+        searchBar.addMouseListener(new ShowMenu());
+
+        relationButton=new JButton();
+        relationButton.setToolTipText("text only");
         regexButton=new JButton();
         regexButton.setToolTipText("apply regex search");
         shutSearchButton=new JButton();
         shutSearchButton.setToolTipText("close search bar");
 
+        ImageIcon relationIcon=new ImageIcon(GUI.class.getResource("global.png"));
+        ImageIcon relationPressedIcon=new ImageIcon(GUI.class.getResource("text_only.png"));
         ImageIcon regexIcon=new ImageIcon(GUI.class.getResource("regex.png"));
         ImageIcon regexPressedIcon=new ImageIcon(GUI.class.getResource("regex_pressed.png"));
         ImageIcon shutIcon=new ImageIcon(GUI.class.getResource("shut.png"));
+
+        relationButton.setIcon(relationIcon);
         regexButton.setIcon(regexIcon);
         shutSearchButton.setIcon(shutIcon);
         searchBar.setPreferredSize(new Dimension(300,28));
         searchBarPanel.add(searchBar);
+        searchBar.add(regexButton);
         searchBarPanel.add(regexButton);
         searchBarPanel.add(shutSearchButton);
         FlowLayout searchLayout=new FlowLayout();
         GroupLayout searchBarLayout=new GroupLayout(searchBarPanel);
         searchBarPanel.setLayout(searchBarLayout);
         searchBarLayout.setHorizontalGroup(searchBarLayout.createSequentialGroup().
-                addComponent(searchBar).addComponent(regexButton).addComponent(shutSearchButton));
+                addComponent(searchBar).addComponent(relationButton).addComponent(regexButton).addComponent(shutSearchButton));
         searchBarLayout.setVerticalGroup(searchBarLayout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-                addComponent(searchBar).addComponent(regexButton).addComponent(shutSearchButton).
+                addComponent(searchBar).addComponent(relationButton).addComponent(regexButton).addComponent(shutSearchButton).
                 addGroup(searchBarLayout.createBaselineGroup(false,false)));
-        searchBarPanel.setVisible(false);;
+        searchBarPanel.setVisible(false);
 
         outputLayout.setHorizontalGroup(outputLayout.createSequentialGroup().addComponent(resultScroll));
         outputLayout.setVerticalGroup(outputLayout.createSequentialGroup().addComponent(resultScroll));
-
-        result.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_F,KeyEvent.CTRL_MASK),"SEARCH");
-        result.getActionMap().put("SEARCH", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                searchBarPanel.setVisible(true);
-                searchBar.requestFocus();
-                amh.forceCease();
-            }
-        });
 
         JPanel combinedPanel=new JPanel();
         combinedPanel.add(inputPanel);
@@ -174,9 +198,6 @@ public class GUI {
                         addComponent(inputPanel).addComponent(searchBarPanel).addComponent(outputPanel));
 
         JPanel checkboxPanel=new JPanel();
-        JCheckBox isTokenShow=new JCheckBox("show tokens?");
-        JCheckBox isPosShow=new JCheckBox("show POS?");
-        JCheckBox isLemmaShow=new JCheckBox("show lemmas?");
         checkboxPanel.add(isTokenShow);
         checkboxPanel.add(isPosShow);
         checkboxPanel.add(isLemmaShow);
@@ -196,6 +217,8 @@ public class GUI {
                 groupLayout.createParallelGroup().
                         addComponent(combinedPanel).addComponent(checkboxPanel));
 
+        UpdateOutput updateOutput=new UpdateOutput(timer,frame,amh);
+
         wikiUrl.addMouseListener(new ShowMenu());
         wikiUrl.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER,KeyEvent.SHIFT_MASK),"GO");
         wikiUrl.getActionMap().put("GO", new AbstractAction() {
@@ -205,42 +228,7 @@ public class GUI {
                 try {
                     NetWork netWork=new NetWork(wikiUrl.getText(),langConfig);
                     netWork.start();
-                    amh.dismiss();
-                    ActionListener updateOutput=new ActionListener() {
-                        @Override
-                        public void actionPerformed(ActionEvent e) {
-                            Article article=Article.getINSTANCE();
-                            if (articles.size()==0){
-                                articles.add(article);
-                            }
-                            else if (article!=articles.get(articles.size()-1)) {
-                                articles.add(article);
-                            }
-                            if (!(article.isValid())){
-                                result.setText("");
-                                timer[0].stop();    //show a warning!
-                            }
-                            if (articles.get(articles.size()-1).isDone()){
-                                System.out.println("DONE!!!");
-                                JList<String> list=new JList<>();
-                                result.setText(article.toString(
-                                        isTokenShow.isSelected(),isPosShow.isSelected(),isLemmaShow.isSelected()));
-                                timer[0].stop();
-                                frame.repaint();
-                                //result.addMouseMotionListener(new MouseHover(result));
-                                if (result.getCaretListeners().length==2){
-                                    amh.trigger();
-                                    result.addMouseListener(amh);
-                                }
-                                progressBar.setValue(100);
-                                progressBar.setString("DONE");
-                            }
-                            else {
-                                progressBar.setValue(article.getProgress());
-                                progressBar.setString("PROCESSING");
-                            }
-                        }
-                    };
+
                     timer[0] =new Timer(250,updateOutput);
                     timer[0].start();
                 }
@@ -268,56 +256,7 @@ public class GUI {
                 try {
                     NetWork netWork=new NetWork(wikiUrl.getText(),langConfig);
                     netWork.start();
-                    amh.dismiss();
-                    ActionListener updateOutput=new ActionListener() {
-                        @Override
-                        public void actionPerformed(ActionEvent e) {
-                            Article article=Article.getINSTANCE();
-                            if (articles.size()==0){
-                                articles.add(article);
-                            }
-                            else if (article!=articles.get(articles.size()-1)) {
-                                articles.add(article);
-                            }
-                            if (!(article.isValid())){
-                                result.setText("");
-                                timer[0].stop();    //show a warning!
-                            }
-                            if (articles.get(articles.size()-1).isDone()){
-                                System.out.println("DONE!!!");
-                                JList<String> list=new JList<>();
-                                result.setText(article.toString(
-                                        isTokenShow.isSelected(),isPosShow.isSelected(),isLemmaShow.isSelected()));
-                                timer[0].stop();
-                                frame.repaint();
-                                //result.addMouseMotionListener(new MouseHover(result));
-                                if (result.getCaretListeners().length==2){
-                                    amh.trigger();
-                                    result.addMouseListener(amh);
-                                    /**result.addCaretListener(new CaretListener() {
-                                        @Override
-                                        public void caretUpdate(CaretEvent e) {
-                                            Article article=Article.getINSTANCE();
-                                            String toUpdate=article.popupString(result.getCaretPosition());
-                                            popupContent.setText(toUpdate==null ? "":toUpdate);
-                                            popup=popupFactory.getPopup(result,popupContent,
-                                                    MouseInfo.getPointerInfo().getLocation().x,MouseInfo.getPointerInfo().getLocation().y);
-                                            if (toUpdate!=null) {
-                                                popup.show();
-                                            }
-                                        }
-                                    });**/
-                                }
-                                progressBar.setValue(100);
-                                progressBar.setString("DONE");
-                            }
-                            else {
-                                progressBar.setValue(article.getProgress());
-                                progressBar.setString("PROCESSING");
-                            }
-                        }
-                    };
-                    timer[0] =new Timer(500,updateOutput);
+                    timer[0] =new Timer(250,new UpdateOutput(timer,frame,amh));
                     timer[0].start();
                 }
                 catch (Exception exception){
@@ -326,10 +265,46 @@ public class GUI {
             }
         });
 
+        saveXML.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Timer[] timers=new Timer[1];
+                fileChooser.showSaveDialog(frame);
+                timers[0]=new Timer(1000, new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        int status=fileChooser.getStatus();
+                        if (status!=0){
+                            timers[0].stop();
+                            if (status!=-1){
+                                try {
+                                    CreateXML xml = new CreateXML(status,
+                                            fileChooser.getLastDir(),
+                                            fileChooser.getFilename());
+                                    if (!xml.check()){
+                                        throw new KException("");
+                                    }
+                                    else {
+                                        xml.save();
+                                    }
+                                }
+                                catch (Exception ex){
+                                    ex.printStackTrace();
+                                    JOptionPane.showMessageDialog(frame,"INVALID PATH");
+                                }
+                            }
+                        }
+                    }
+                });
+                timers[0].start();
+            }
+        });
+
         shutSearchButton.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 searchBarPanel.setVisible(false);
+                cellRenderer.setHighlightRange(null);
             }
         });
 
@@ -338,9 +313,25 @@ public class GUI {
             public void mouseClicked(MouseEvent e) {
                 if (regexButton.getIcon()==regexIcon){
                     regexButton.setIcon(regexPressedIcon);
+                    regexButton.setToolTipText("dismiss regex search");
                 }
                 else {
                     regexButton.setIcon(regexIcon);
+                    regexButton.setToolTipText("apply regex search");
+                }
+            }
+        });
+
+        relationButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (relationButton.getIcon()==relationIcon){
+                    relationButton.setIcon(relationPressedIcon);
+                    relationButton.setToolTipText("global");
+                }
+                else {
+                    relationButton.setIcon(relationIcon);
+                    relationButton.setToolTipText("text only");
                 }
             }
         });
@@ -350,40 +341,30 @@ public class GUI {
             public void insertUpdate(DocumentEvent e) {
                 update();
             }
-
             @Override
             public void removeUpdate(DocumentEvent e) {
                 update();
             }
-
             @Override
             public void changedUpdate(DocumentEvent e) {
                 update();
             }
-
             private void update(){
                 Article article=Article.getINSTANCE();
 
-                java.util.List<int[]> render=new ArrayList<>();
+                java.util.List<java.util.List<int[]>> render=new ArrayList<>();
                 try {
-                    render=article.find(
-                            searchBar.getText(),regexButton.getIcon()==regexPressedIcon,
-                            result.getDocument().getText(0,result.getDocument().getLength()));
+                    for (int i=0;i<listModel.getSize();i++){
+                        render.add(listModel.getElementAt(i).find(
+                                searchBar.getText(),
+                                regexButton.getIcon()==regexPressedIcon,
+                                relationButton.getIcon()==relationIcon));
+                    }
+                    cellRenderer.setHighlightRange(render);
+                    resultList.repaint();
                 }
                 catch (Exception exception){
                     exception.printStackTrace();
-                }
-                Highlighter highlighter=result.getHighlighter();
-                highlighter.removeAllHighlights();
-
-                Highlighter.HighlightPainter painter=new DefaultHighlighter.DefaultHighlightPainter(Color.YELLOW);
-                for (int[] pair:render){
-                    try{
-                        highlighter.addHighlight(pair[0],pair[1],painter);
-                    }
-                    catch (Exception exception){
-                        exception.printStackTrace();
-                    }
                 }
             }
         });
@@ -392,6 +373,220 @@ public class GUI {
         frame.pack();
         frame.setVisible(true);
     }
+
+    private static class CreateXML{
+        private Document doc=Document.createShell("");
+        private int status;
+        private String path;
+        private String filename;
+
+        public CreateXML(int status,String path,String filename) {
+            this.status=status;
+            this.path=path;
+            this.filename=filename;
+            doc.select("html").remove();
+        }
+
+        public boolean check(){
+            Pattern pattern= Pattern.compile("[\\w_].*\\.xml");
+            Matcher matcher= pattern.matcher(filename);
+            if (matcher.find()){
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        public void save(){
+            Element db=doc.appendElement("db");
+            if (status==1){
+                Article.getINSTANCE().toXML(db,Article.getINSTANCE());
+            }
+            else if (status==2) {
+                for (ArticleRoot a:articles) {
+                    a.toXML(db,a);
+                }
+            }
+
+            try (PrintWriter pw=new PrintWriter(path+"\\"+filename,"UTF-8")){
+                pw.write(doc.toString());
+                System.out.println(doc.select("db").first());
+            }
+            catch (Exception exception){
+                exception.printStackTrace();
+            }
+        }
+    }
+
+    private static class AppendMouseHover extends MouseAdapter {
+        private MouseHover mh;
+        public AppendMouseHover() {
+            System.out.println("AMH CREATE");
+            mh=new MouseHover();
+        }
+
+        public void trigger(){
+            resultList.addMouseMotionListener(mh);
+        }
+
+        @Override
+        public void mousePressed(MouseEvent e) {
+            if (popup!=null){
+                popup.hide();
+            }
+            resultList.removeMouseMotionListener(mh);
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent e) {
+            resultList.addMouseMotionListener(mh);
+        }
+
+        @Override
+        public void mouseEntered(MouseEvent e) {
+            resultList.addMouseMotionListener(mh);
+        }
+
+        @Override
+        public void mouseExited(MouseEvent e) {
+            if (popup!=null){
+                popup.hide();
+            }
+            try{
+                mh.forceCease();
+            }
+            catch (Exception exception){
+                exception.printStackTrace();
+            }
+            resultList.removeMouseMotionListener(mh);
+        }
+    }
+
+    private static class MouseHover extends MouseMotionAdapter{
+
+        private Timer[] timer=new Timer[1];
+
+
+        public MouseHover() {
+            System.out.println("MOUSE HOVER CREATE");
+        }
+
+        public void forceCease(){
+            try {
+                timer[0].stop();
+            }
+            catch (Exception exception){
+                exception.printStackTrace();
+            }
+        }
+
+        @Override
+        public void mouseMoved(MouseEvent e) {
+            if (popup!=null){
+                popup.hide();
+            }
+            if (timer[0]!=null){
+                timer[0].stop();
+            }
+            int length=resultList.getModel().getSize();
+            Rectangle base=SwingUtilities.convertRectangle(resultList,resultList.getBounds(),frame);
+            int cur=resultScroll.getVerticalScrollBar().getValue();
+            for (int i=0;i<length;i++){
+                Rectangle temp=new Rectangle(base.x+resultList.getCellBounds(i,i).x,
+                        base.y+resultList.getCellBounds(i,i).y+cur,
+                        (int) resultScroll.getViewportBorderBounds().getWidth(),
+                        resultList.getCellBounds(i,i).height);
+                if (temp.contains(MouseInfo.getPointerInfo().getLocation())){
+                    timer[0]=new Timer(1500,new ShowPopup(i));
+                    timer[0].setRepeats(false);
+                    timer[0].start();
+                    break;
+                }
+            }
+        }
+    }
+
+    private static class ShowPopup implements ActionListener{
+        private int index;
+
+        public ShowPopup(int index) {
+            this.index = index;
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            popup=popupFactory.getPopup(resultList,popupContent,
+                    MouseInfo.getPointerInfo().getLocation().x+10,
+                    MouseInfo.getPointerInfo().getLocation().y+10);
+            popupContent.setText(listModel.getElementAt(index).popupString());
+            if (!searchBarPanel.isVisible()){
+                System.out.println("POPUP");
+                popup.show();
+            }
+        }
+    }
+
+    private static class UpdateOutput implements ActionListener {
+        private Timer[] timer;
+        private JFrame frame;
+        private AppendMouseHover amh;
+
+        public UpdateOutput(Timer[] timer, JFrame frame, AppendMouseHover amh) {
+            this.timer = timer;
+            this.frame = frame;
+            this.amh = amh;
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            Article article=Article.getINSTANCE();
+            if (articles.size()==0){
+                articles.add(new ArticleRoot(article));
+            }
+            else if (!article.getUrl().equals(articles.get(articles.size()-1).getUrl())) {
+                articles.add(new ArticleRoot(article));
+            }
+            if (!(article.isValid())){
+                //result.setText("");
+                timer[0].stop();    //show a warning!
+            }
+            if (article.isDone()){
+                articles.get(articles.size()-1).addRaw(article);
+                System.out.println("DONE!!!");
+                listModel.removeAllElements();
+                article.setShowToken(isTokenShow.isSelected(),isPosShow.isSelected(),isLemmaShow.isSelected());
+                for (Sentence s:article.getAllSentence(article)){
+                    listModel.addElement(s);
+                }
+                cellRenderer=new CellView();
+                resultList.setCellRenderer(cellRenderer);
+                resultList.repaint();
+
+                timer[0].stop();
+                frame.repaint();
+                progressBar.setValue(100);
+                progressBar.setString("DONE");
+                if (!(resultList.getMouseListeners()[resultList.getMouseListeners().length-1]==amh)){
+                    System.out.println("BIND");
+                    resultList.addMouseListener(amh);
+                    //resultList.addMouseMotionListener(new MouseHover());
+                    amh.trigger();
+                    for (MouseListener m:resultList.getMouseListeners()){
+                        System.out.println(m);
+                    }
+                    System.out.println("------------");
+                    for (MouseMotionListener m:resultList.getMouseMotionListeners()){
+                        System.out.println(m);
+                    }
+                }
+            }
+            else {
+                progressBar.setValue(article.getProgress());
+                progressBar.setString("PROCESSING");
+            }
+        }
+    };
 
     private static void getSettings(){
         try(BufferedReader br=new BufferedReader(new FileReader(GUI.class.getResource("config").getPath()))){
@@ -429,159 +624,6 @@ public class GUI {
         }
     }
 
-    private static class AppendMouseHover extends MouseAdapter{
-        private JEditorPane component;
-        private MouseHover hoverF;
-        private UpdateCaret updateCaret;
-
-        public AppendMouseHover(JEditorPane component) {
-            this.component=component;
-
-            this.updateCaret=new UpdateCaret(this.component,true);
-        }
-
-        public void trigger(){
-            this.hoverF=new MouseHover(this.component);
-
-            this.component.addMouseMotionListener(this.hoverF);
-            this.component.addCaretListener(this.updateCaret);
-        }
-
-        public void dismiss(){
-            this.component.removeMouseMotionListener(this.hoverF);
-            this.component.removeCaretListener(this.updateCaret);
-        }
-
-        @Override
-        public void mousePressed(MouseEvent e) {
-            this.component.removeMouseMotionListener(this.hoverF);
-            this.updateCaret.setStatus(false);
-        }
-
-        @Override
-        public void mouseReleased(MouseEvent e) {
-            this.component.addMouseMotionListener(this.hoverF);
-            updateCaret.setStatus(true);
-            /**Timer temp= new Timer(1000, new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    updateCaret.setStatus(true);
-                }
-            });
-            temp.start();**/
-        }
-
-        @Override
-        public void mouseExited(MouseEvent e) {
-            try{
-                this.hoverF.forceCease();
-            }
-            catch (Exception ex){
-                ex.printStackTrace();
-            }
-        }
-
-        public void forceCease(){
-            try {
-                this.hoverF.forceCease();
-            }
-            catch (Exception e){
-                e.printStackTrace();
-            }
-        }
-
-        private class UpdateCaret implements CaretListener{
-
-            JEditorPane c;
-            boolean status;
-
-            public UpdateCaret(JEditorPane c,boolean status) {
-                this.c = c;
-                this.status=status;
-            }
-
-            public void setStatus(boolean status) {
-                this.status = status;
-            }
-
-            public boolean isStatus() {
-                return status;
-            }
-
-            @Override
-            public void caretUpdate(CaretEvent e) {
-                if (this.c.getSelectedText()==null){
-                    Article article=Article.getINSTANCE();
-                    String toUpdate=article.popupString(result.getCaretPosition());
-                    popupContent.setText(toUpdate==null ? "":toUpdate);
-                    popup=popupFactory.getPopup(result,popupContent,
-                            MouseInfo.getPointerInfo().getLocation().x,MouseInfo.getPointerInfo().getLocation().y);
-                    if (toUpdate!=null&&(!toUpdate.equals(""))) {
-                        popup.show();
-                    }
-                }
-            }
-        }
-    }
-
-    private static class MouseHover extends MouseMotionAdapter{
-        private JEditorPane component;
-        final Timer[] timerMouseMotion=new Timer[1];
-
-        public MouseHover(JEditorPane component) {
-            super();
-            this.component=component;
-        }
-
-        public void forceCease(){
-            try {
-                timerMouseMotion[0].stop();
-            }
-            catch (Exception e){
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public void mouseDragged(MouseEvent e) {
-            try {
-                timerMouseMotion[0].stop();
-            }
-            catch (Exception ex){
-                ex.printStackTrace();
-            }
-        }
-
-        @Override
-        public void mouseMoved(MouseEvent e) {
-            super.mouseMoved(e);
-            if (popup!=null){
-                popup.hide();
-            }
-            try {
-                Robot bot =new Robot();
-                ActionListener simulation=new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        bot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-                        bot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-                    }
-                };
-                if (timerMouseMotion[0]!=null){
-                    timerMouseMotion[0].stop();
-                }
-                timerMouseMotion[0]=new Timer(1500,simulation);
-                timerMouseMotion[0].setRepeats(false);
-                if (this.component.getSelectedText()==null&&(!searchBarPanel.isVisible())){
-                    timerMouseMotion[0].start();
-                }
-            }
-            catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-    }
-
     private static class ShowMenu extends MouseAdapter{
 
         @Override
@@ -612,7 +654,7 @@ public class GUI {
             paste.addActionListener(new EditText((JTextComponent) e.getComponent()));
             empty.addActionListener(new EditText((JTextComponent) e.getComponent()));
             if(e.isPopupTrigger()){
-                if (e.getSource()==result){
+                if (e.getSource()==resultList){
                     cut.setEnabled(false);
                     paste.setEnabled(false);
                     empty.setEnabled(false);
