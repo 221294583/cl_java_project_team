@@ -29,7 +29,8 @@ public class CellView extends JEditorPane implements ListCellRenderer<Sentence> 
             }
         });
 
-        setText(value.toString());
+        setText(value.toString(index));
+        /**
         if (isSelected){
             setBackground(Color.MAGENTA);
         }
@@ -40,7 +41,7 @@ public class CellView extends JEditorPane implements ListCellRenderer<Sentence> 
             else {
                 setBackground(Color.CYAN);
             }
-        }
+        }**/
         if (this.highlightRange!=null){
             Highlighter highlighter=this.getHighlighter();
             highlighter.removeAllHighlights();

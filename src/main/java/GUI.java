@@ -29,6 +29,7 @@ public class GUI {
     private static java.util.List<ArticleRoot> articles=new ArrayList<>();
 
     private static String langConfig;
+    private static String font;
     private static Clipboard clipboard;
 
     private static JFrame frame=new JFrame("Wiki Spider");
@@ -146,6 +147,7 @@ public class GUI {
                 searchBar.requestFocus();
             }
         });
+        resultList.addMouseListener(new ShowMenu());
 
         searchBar=new JTextField("",20);
 
@@ -596,6 +598,9 @@ public class GUI {
                 if (dict[0].equals("language")){
                     langConfig=dict[1];
                 }
+                if (dict[0].equals("font")){
+                    font=dict[1];
+                }
             }
         }
         catch (Exception e){
@@ -649,10 +654,29 @@ public class GUI {
             for (ActionListener a:empty.getActionListeners()){
                 empty.removeActionListener(a);
             }
-            copy.addActionListener(new EditText((JTextComponent) e.getComponent()));
-            cut.addActionListener(new EditText((JTextComponent) e.getComponent()));
-            paste.addActionListener(new EditText((JTextComponent) e.getComponent()));
-            empty.addActionListener(new EditText((JTextComponent) e.getComponent()));
+            if (e.getSource()==resultList){
+                int length=resultList.getModel().getSize();
+                Rectangle base=SwingUtilities.convertRectangle(resultList,resultList.getBounds(),frame);
+                int cur=resultScroll.getVerticalScrollBar().getValue();
+                String toProcess="";
+                for (int i=0;i<length;i++){
+                    Rectangle temp=new Rectangle(base.x+resultList.getCellBounds(i,i).x,
+                            base.y+resultList.getCellBounds(i,i).y+cur,
+                            (int) resultScroll.getViewportBorderBounds().getWidth(),
+                            resultList.getCellBounds(i,i).height);
+                    if (temp.contains(MouseInfo.getPointerInfo().getLocation())){
+                        toProcess=resultList.getModel().getElementAt(i).toString(false,false,true,0);
+                        break;
+                    }
+                }
+                copy.addActionListener(new EditText(toProcess));
+            }
+            else {
+                copy.addActionListener(new EditText((JTextComponent) e.getComponent()));
+                cut.addActionListener(new EditText((JTextComponent) e.getComponent()));
+                paste.addActionListener(new EditText((JTextComponent) e.getComponent()));
+                empty.addActionListener(new EditText((JTextComponent) e.getComponent()));
+            }
             if(e.isPopupTrigger()){
                 if (e.getSource()==resultList){
                     cut.setEnabled(false);
@@ -672,10 +696,16 @@ public class GUI {
 
     private static class EditText implements ActionListener{
         private JTextComponent component;
+        private String toCopy;
 
         public EditText(JTextComponent component) {
             this.component=component;
         }
+
+        public EditText(String toCopy) {
+            this.toCopy = toCopy;
+        }
+
         @Override
         public void actionPerformed(ActionEvent e) {
             if (e.getActionCommand().equals("cut")){
@@ -691,7 +721,12 @@ public class GUI {
                 }
             }
             if (e.getActionCommand().equals("copy")){
-                clipboard.setContents(new StringSelection(this.component.getSelectedText()),null);
+                if (this.component==null){
+                    clipboard.setContents(new StringSelection(this.toCopy),null);
+                }
+                else {
+                    clipboard.setContents(new StringSelection(this.component.getSelectedText()),null);
+                }
             }
             if (e.getActionCommand().equals("empty")){
                 this.component.setText("");

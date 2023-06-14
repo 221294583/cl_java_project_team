@@ -12,9 +12,9 @@ import org.jsoup.nodes.Element;
 public class Sentence {
 
     private String content;
-    private static String[] tokens=null;
-    private static String[] pos=null;
-    private static String[] lemmas=null;
+    private String[] tokens=null;
+    private String[] pos=null;
+    private String[] lemmas=null;
     private String tag;
     private boolean showToken;
     private boolean showPOS;
@@ -88,15 +88,15 @@ public class Sentence {
         }
     }
 
-    public String toString(boolean pureText,boolean textOnly){
+    public String toString(boolean pureText,boolean textOnly,boolean toCopy,int index){
         String result="";
-        if (pureText){
-            result+=String.format("%1$s\n",this.content);
+        if (toCopy){
+            result+=content+"\n";
             if (showToken){
-                result+=String.format("       ",this.tag);
                 for (String s:this.tokens) {
                     result+=s+", ";
                 }
+                result+="\n";
             }
             if (showPOS){
                 result+=String.format("     ",this.tag);
@@ -112,30 +112,61 @@ public class Sentence {
                 }
                 result+="\n";
             }
+            return result;
+        }
+        if (pureText){
+            result+=String.format("%1$s\n",this.content);
+            if (!textOnly){
+                if (showToken){
+                    result+=String.format("       ",this.tag);
+                    for (String s:this.tokens) {
+                        result+=s+", ";
+                    }
+                    result+="\n";
+                }
+                if (showPOS){
+                    result+=String.format("     ",this.tag);
+                    for (String s:this.pos) {
+                        result+=s+", ";
+                    }
+                    result+="\n";
+                }
+                if (showLemma){
+                    result+=String.format("       ",this.tag);
+                    for (String s:this.lemmas) {
+                        result+=s+", ";
+                    }
+                    result+="\n";
+                }
+            }
         }
         else {
+            result+=String.format("<div style=\"background-color:%1$s;\">",index%2==1 ? "#b5d4f5":"#ada161");
             result+=String.format("<%1$s>%2$s</%1$s>",this.tag,this.content);
-            if (showToken){
-                result+=String.format("<%1$s style=style=\"color:green;\">TOKEN: ",this.tag);
-                for (String s:this.tokens) {
-                    result+=String.format("<b>%1$s</b>",s)+", ";
+            if (!textOnly){
+                if (showToken){
+                    result+=String.format("<%1$s style=\"color:green;\">TOKEN: ",this.tag);
+                    for (String s:this.tokens) {
+                        result+=String.format("<b>%1$s</b>",s)+", ";
+                    }
+                    result+=String.format("</%1$s>",this.tag);
                 }
-                result+=String.format("</%1$s>",this.tag);
-            }
-            if (showPOS){
-                result+=String.format("<%1$s style=style=\"color:red;\">POS: ",this.tag);
-                for (String s:this.pos) {
-                    result+=String.format("<b>%1$s</b>",s)+", ";
+                if (showPOS){
+                    result+=String.format("<%1$s style=\"color:red;\">POS: ",this.tag);
+                    for (String s:this.pos) {
+                        result+=String.format("<b>%1$s</b>",s)+", ";
+                    }
+                    result+=String.format("</%1$s>",this.tag);
                 }
-                result+=String.format("</%1$s>",this.tag);
-            }
-            if (showLemma){
-                result+=String.format("<%1$s style=style=\"color:blue;\">LEMMA: ",this.tag);
-                for (String s:this.lemmas) {
-                    result+=String.format("<b>%1$s</b>",s)+", ";
+                if (showLemma){
+                    result+=String.format("<%1$s style=\"color:blue;\">LEMMA: ",this.tag);
+                    for (String s:this.lemmas) {
+                        result+=String.format("<b>%1$s</b>",s)+", ";
+                    }
+                    result+=String.format("</%1$s>",this.tag);
                 }
-                result+=String.format("</%1$s>",this.tag);
             }
+            result+="</div>";
         }
         return result;
     }
@@ -146,8 +177,13 @@ public class Sentence {
 
     @Override
     public String toString() {
-        return this.toString(false,false);
+        return this.toString(false,false,false,0);
     }
+
+    public String toString(int index) {
+        return this.toString(false,false,false,index);
+    }
+
 
     public List<int[]> find(String toFind,boolean isRegex,boolean isGlobal){
         String re=isRegex ? toFind : Pattern.quote(toFind);
@@ -155,14 +191,14 @@ public class Sentence {
         if (!toFind.isEmpty()){
             if (isGlobal){
                 Pattern pattern=Pattern.compile(re);
-                Matcher matcher= pattern.matcher(this.toString(true,false));
+                Matcher matcher= pattern.matcher(this.toString(true,false,false,0));
                 while (matcher.find()){
                     result.add(new int[]{matcher.start()+1,matcher.end()+1});
                 }
             }
             else {
                 Pattern pattern=Pattern.compile(re);
-                Matcher matcher=pattern.matcher(this.toString(true,true));
+                Matcher matcher=pattern.matcher(this.toString(true,true,false,0));
                 while (matcher.find()){
                     result.add(new int[]{matcher.start()+1,matcher.end()+1});
                 }
