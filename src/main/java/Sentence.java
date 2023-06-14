@@ -88,7 +88,7 @@ public class Sentence {
         }
     }
 
-    public String toString(boolean pureText,boolean textOnly,boolean toCopy,int index){
+    public String toString(boolean pureText,boolean textOnly,boolean toCopy,int index,int font){
         String result="";
         if (toCopy){
             result+=content+"\n";
@@ -141,7 +141,7 @@ public class Sentence {
             }
         }
         else {
-            result+=String.format("<div style=\"background-color:%1$s;\">",index%2==1 ? "#b5d4f5":"#ada161");
+            result+=String.format("<div style=\"background-color:%1$s;font-size:%2$dpx\">",index%2==1 ? "#b5d4f5":"#ada161",font);
             result+=String.format("<%1$s>%2$s</%1$s>",this.tag,this.content);
             if (!textOnly){
                 if (showToken){
@@ -177,11 +177,11 @@ public class Sentence {
 
     @Override
     public String toString() {
-        return this.toString(false,false,false,0);
+        return this.toString(false,false,false,0,0);
     }
 
-    public String toString(int index) {
-        return this.toString(false,false,false,index);
+    public String toString(int index,int font) {
+        return this.toString(false,false,false,index,font);
     }
 
 
@@ -191,14 +191,14 @@ public class Sentence {
         if (!toFind.isEmpty()){
             if (isGlobal){
                 Pattern pattern=Pattern.compile(re);
-                Matcher matcher= pattern.matcher(this.toString(true,false,false,0));
+                Matcher matcher= pattern.matcher(this.toString(true,false,false,0,0));
                 while (matcher.find()){
                     result.add(new int[]{matcher.start()+1,matcher.end()+1});
                 }
             }
             else {
                 Pattern pattern=Pattern.compile(re);
-                Matcher matcher=pattern.matcher(this.toString(true,true,false,0));
+                Matcher matcher=pattern.matcher(this.toString(true,true,false,0,0));
                 while (matcher.find()){
                     result.add(new int[]{matcher.start()+1,matcher.end()+1});
                 }
@@ -235,11 +235,12 @@ public class Sentence {
 
     public void toXML(Element sent){
         for(int i=0;i<this.tokens.length;i++){
-            Element t=sent.appendElement("token");
+            Element w=sent.appendElement("word");
+            Element t=w.appendElement("token");
             t.text(this.tokens[i]);
-            Element p=sent.appendElement("POS");
+            Element p=w.appendElement("POS");
             p.text(this.pos[i]);
-            Element l=sent.appendElement("lemma");
+            Element l=w.appendElement("lemma");
             l.text(this.lemmas[i]);
         }
     }

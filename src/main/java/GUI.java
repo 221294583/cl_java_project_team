@@ -29,7 +29,7 @@ public class GUI {
     private static java.util.List<ArticleRoot> articles=new ArrayList<>();
 
     private static String langConfig;
-    private static String font;
+    private static int font;
     private static Clipboard clipboard;
 
     private static JFrame frame=new JFrame("Wiki Spider");
@@ -41,6 +41,7 @@ public class GUI {
     private static JMenuItem languageFR=new JMenuItem("");
     private static CFileChooser fileChooser;
     private static JMenuItem saveXML=new JMenuItem("save to XML file");
+    private static JMenuItem changeFont=new JMenuItem("change font");
 
     private static JPopupMenu popupMenu=new JPopupMenu("edit");
     private static JMenuItem cut = new JMenuItem("cut");
@@ -77,7 +78,7 @@ public class GUI {
 
         final Timer[] timer = new Timer[1];
         getSettings();
-        cellRenderer=new CellView();
+        cellRenderer=new CellView(font);
         clipboard=Toolkit.getDefaultToolkit().getSystemClipboard();
 
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -101,6 +102,7 @@ public class GUI {
         languageMenu.add(languageFR);
         menuSettings.add(languageMenu);
         menuSettings.add(saveXML);
+        menuSettings.add(changeFont);
         fileChooser=new CFileChooser(System.getProperty("user.dir"));
 
         popupMenu.add(copy);
@@ -119,6 +121,7 @@ public class GUI {
         progressBar.setStringPainted(true);
         progressBar.setString("PENDING");
 
+        wikiUrl.setFont(new Font("Serif",Font.BOLD,font));
         inputPanel.add(wikiUrl);
         inputPanel.add(entryButton);
         inputPanel.add(progressBar);
@@ -299,6 +302,20 @@ public class GUI {
                     }
                 });
                 timers[0].start();
+            }
+        });
+
+        changeFont.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try{
+                    Integer newFont=Integer.parseInt(JOptionPane.showInputDialog(frame,"give a number"));
+                    System.out.println(newFont);
+                    //InputStream inputStream=new
+                }
+                catch (Exception exception){
+                    JOptionPane.showMessageDialog(frame,"Invalid number!");
+                }
             }
         });
 
@@ -561,7 +578,7 @@ public class GUI {
                 for (Sentence s:article.getAllSentence(article)){
                     listModel.addElement(s);
                 }
-                cellRenderer=new CellView();
+                cellRenderer=new CellView(font);
                 resultList.setCellRenderer(cellRenderer);
                 resultList.repaint();
 
@@ -599,7 +616,8 @@ public class GUI {
                     langConfig=dict[1];
                 }
                 if (dict[0].equals("font")){
-                    font=dict[1];
+                    font= Integer.parseInt(dict[1]);
+                    System.out.println(font);
                 }
             }
         }
@@ -665,7 +683,7 @@ public class GUI {
                             (int) resultScroll.getViewportBorderBounds().getWidth(),
                             resultList.getCellBounds(i,i).height);
                     if (temp.contains(MouseInfo.getPointerInfo().getLocation())){
-                        toProcess=resultList.getModel().getElementAt(i).toString(false,false,true,0);
+                        toProcess=resultList.getModel().getElementAt(i).toString(false,false,true,0,0);
                         break;
                     }
                 }

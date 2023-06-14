@@ -8,10 +8,12 @@ import java.util.List;
 public class CellView extends JEditorPane implements ListCellRenderer<Sentence> {
 
     private List<List<int[]>> highlightRange;
+    private int font;
 
-    public CellView() {
+    public CellView(int font) {
         super();
         this.highlightRange=null;
+        this.font=font;
         setContentType("text/html");
         setEditable(false);
     }
@@ -29,7 +31,7 @@ public class CellView extends JEditorPane implements ListCellRenderer<Sentence> 
             }
         });
 
-        setText(value.toString(index));
+        setText(value.toString(index,this.font));
         /**
         if (isSelected){
             setBackground(Color.MAGENTA);
