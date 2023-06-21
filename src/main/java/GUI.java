@@ -1,24 +1,15 @@
-import com.thoughtworks.xstream.XStream;
-import org.apache.batik.swing.JSVGCanvas;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import javax.swing.*;
-import javax.swing.event.CaretEvent;
-import javax.swing.event.CaretListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.text.DefaultHighlighter;
-import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
@@ -68,6 +59,12 @@ public class GUI {
     private static JButton relationButton;
     private static JButton regexButton;
     private static JButton shutSearchButton;
+    private static ImageIcon relationIcon;
+    private static ImageIcon relationPressedIcon;
+    private static ImageIcon regexIcon;
+    private static ImageIcon regexPressedIcon;
+    private static ImageIcon shutIcon;
+
 
     private static JCheckBox isTokenShow=new JCheckBox("show tokens?");
     private static JCheckBox isPosShow=new JCheckBox("show POS?");
@@ -163,11 +160,11 @@ public class GUI {
         shutSearchButton=new JButton();
         shutSearchButton.setToolTipText("close search bar");
 
-        ImageIcon relationIcon=new ImageIcon(GUI.class.getResource("global.png"));
-        ImageIcon relationPressedIcon=new ImageIcon(GUI.class.getResource("text_only.png"));
-        ImageIcon regexIcon=new ImageIcon(GUI.class.getResource("regex.png"));
-        ImageIcon regexPressedIcon=new ImageIcon(GUI.class.getResource("regex_pressed.png"));
-        ImageIcon shutIcon=new ImageIcon(GUI.class.getResource("shut.png"));
+        relationIcon=new ImageIcon(GUI.class.getResource("global.png"));
+        relationPressedIcon=new ImageIcon(GUI.class.getResource("text_only.png"));
+        regexIcon=new ImageIcon(GUI.class.getResource("regex.png"));
+        regexPressedIcon=new ImageIcon(GUI.class.getResource("regex_pressed.png"));
+        shutIcon=new ImageIcon(GUI.class.getResource("shut.png"));
 
         relationButton.setIcon(relationIcon);
         regexButton.setIcon(regexIcon);
@@ -324,6 +321,7 @@ public class GUI {
             public void mouseClicked(MouseEvent e) {
                 searchBarPanel.setVisible(false);
                 cellRenderer.setHighlightRange(null);
+                update(true);
             }
         });
 
@@ -338,6 +336,7 @@ public class GUI {
                     regexButton.setIcon(regexIcon);
                     regexButton.setToolTipText("apply regex search");
                 }
+                update(false);
             }
         });
 
@@ -352,45 +351,49 @@ public class GUI {
                     relationButton.setIcon(relationIcon);
                     relationButton.setToolTipText("text only");
                 }
+                update(false);
             }
         });
 
         searchBar.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
-                update();
+                update(false);
             }
             @Override
             public void removeUpdate(DocumentEvent e) {
-                update();
+                update(false);
             }
             @Override
             public void changedUpdate(DocumentEvent e) {
-                update();
-            }
-            private void update(){
-                Article article=Article.getINSTANCE();
-
-                java.util.List<java.util.List<int[]>> render=new ArrayList<>();
-                try {
-                    for (int i=0;i<listModel.getSize();i++){
-                        render.add(listModel.getElementAt(i).find(
-                                searchBar.getText(),
-                                regexButton.getIcon()==regexPressedIcon,
-                                relationButton.getIcon()==relationIcon));
-                    }
-                    cellRenderer.setHighlightRange(render);
-                    resultList.repaint();
-                }
-                catch (Exception exception){
-                    exception.printStackTrace();
-                }
+                update(false);
             }
         });
 
         frame.setJMenuBar(menuBar);
         frame.pack();
         frame.setVisible(true);
+    }
+
+    private static void update(boolean cancel){
+        Article article=Article.getINSTANCE();
+
+        java.util.List<java.util.List<int[]>> render=new ArrayList<>();
+        try {
+            for (int i=0;i<listModel.getSize();i++){
+
+                 render.add(listModel.getElementAt(i).find(
+                 searchBar.getText(),
+                 regexButton.getIcon()==regexPressedIcon,
+                 relationButton.getIcon()==relationIcon));
+
+            }
+            cellRenderer.setHighlightRange(render);
+            resultList.repaint();
+        }
+        catch (Exception exception){
+            exception.printStackTrace();
+        }
     }
 
     private static class CreateXML{
@@ -591,13 +594,13 @@ public class GUI {
                     resultList.addMouseListener(amh);
                     //resultList.addMouseMotionListener(new MouseHover());
                     amh.trigger();
-                    for (MouseListener m:resultList.getMouseListeners()){
+                    /**for (MouseListener m:resultList.getMouseListeners()){
                         System.out.println(m);
                     }
                     System.out.println("------------");
                     for (MouseMotionListener m:resultList.getMouseMotionListeners()){
                         System.out.println(m);
-                    }
+                    }**/
                 }
             }
             else {
@@ -683,7 +686,7 @@ public class GUI {
                             (int) resultScroll.getViewportBorderBounds().getWidth(),
                             resultList.getCellBounds(i,i).height);
                     if (temp.contains(MouseInfo.getPointerInfo().getLocation())){
-                        toProcess=resultList.getModel().getElementAt(i).toString(false,false,true,0,0);
+                        toProcess=resultList.getModel().getElementAt(i).toString(true,0,0);
                         break;
                     }
                 }

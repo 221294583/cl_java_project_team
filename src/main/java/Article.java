@@ -183,6 +183,7 @@ public class Article implements Iterable<Paragraph>{
         return done;
     }
 
+    /**
     @Deprecated
     public String toString(boolean showToken,boolean showPOS,boolean showLemma){
         this.showToken=showToken;
@@ -243,6 +244,7 @@ public class Article implements Iterable<Paragraph>{
         }
         return res;
     }
+    **/
 
     public void setShowToken(boolean showToken,boolean showPOS,boolean showLemma) {
         this.showToken = showToken;
@@ -265,7 +267,7 @@ public class Article implements Iterable<Paragraph>{
         }
         return result.toArray(new Sentence[0]);
     }
-
+    /**
     public String popupString(int caret){
         Sentence temp=null;
         String buffer="";
@@ -301,6 +303,7 @@ public class Article implements Iterable<Paragraph>{
         }
         return temp==null ? null : buffer;
     }
+     **/
 
     public void toXML(Element db,Article art){
         Element a=db.appendElement("article");
