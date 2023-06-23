@@ -346,10 +346,12 @@ public class GUI {
                 if (relationButton.getIcon()==relationIcon){
                     relationButton.setIcon(relationPressedIcon);
                     relationButton.setToolTipText("global");
+                    cellRenderer.setGlobal(false);
                 }
                 else {
                     relationButton.setIcon(relationIcon);
                     relationButton.setToolTipText("text only");
+                    cellRenderer.setGlobal(true);
                 }
                 update(false);
             }

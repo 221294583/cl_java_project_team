@@ -11,6 +11,7 @@ public class CellView extends JEditorPane implements ListCellRenderer<Sentence> 
 
     private List<List<int[]>> highlightRange;
     private int font;
+    private boolean global=true;
 
     public CellView(int font) {
         super();
@@ -18,6 +19,10 @@ public class CellView extends JEditorPane implements ListCellRenderer<Sentence> 
         this.font=font;
         setContentType("text/html");
         setEditable(false);
+    }
+
+    public void setGlobal(boolean global) {
+        this.global = global;
     }
 
     public void setHighlightRange(List<List<int[]>> highlightRange) {
@@ -59,7 +64,7 @@ public class CellView extends JEditorPane implements ListCellRenderer<Sentence> 
                 }
             }
             Word cur=value.getHead();
-            while (cur!=null){
+            while (cur!=null&&this.global){
                 if (cur.hasMatch()){
                     int[][] tmp=cur.getOffset();
                     try {
